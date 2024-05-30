@@ -36,7 +36,9 @@
 
 #include "core/config/project_settings.h"
 #include "core/io/dir_access.h"
+#include "core/io/file_access.h"
 #include "core/math/geometry_2d.h"
+#include "core/os/time.h"
 #include "editor/editor_paths.h"
 #include "editor/editor_settings.h"
 #include "servers/rendering/rendering_device_binds.h"
@@ -581,7 +583,7 @@ void LightmapperRD::_create_acceleration_structures(RenderingDevice *rd, Size2i 
 		}
 
 		Ref<Image> img = Image::create_from_data(grid_size, grid_size, false, Image::FORMAT_L8, grid_usage);
-		img->save_png("res://grid_layer_" + itos(1000 + i).substr(1, 3) + ".png");
+		img->save_png(debug_path + "/grid_layer_" + itos(1000 + i).substr(1, 3) + ".png");
 	}
 #endif
 
@@ -776,7 +778,7 @@ LightmapperRD::BakeError LightmapperRD::_dilate(RenderingDevice *rd, Ref<RDShade
 		Vector<uint8_t> s = rd->texture_get_data(source_light_tex, i);
 		Ref<Image> img = Image::create_from_data(atlas_size.width, atlas_size.height, false, Image::FORMAT_RGBAH, s);
 		img->convert(Image::FORMAT_RGBA8);
-		img->save_png("res://5_dilated_" + itos(i) + ".png");
+		img->save_png(debug_path + "/5_dilated_" + itos(i) + ".png");
 	}
 #endif
 	return BAKE_OK;
@@ -1002,6 +1004,16 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 	bake_textures.clear();
 	int grid_size = 128;
 
+#ifdef DEBUG_TEXTURES
+	const Time *time = Time::get_singleton();
+	debug_path = "res://.lightmapper-" + String::num_uint64(time->get_unix_time_from_datetime_dict(time->get_datetime_dict_from_system()));
+	Ref<DirAccess> dir = DirAccess::create(DirAccess::ACCESS_RESOURCES);
+	dir->make_dir(debug_path);
+	Ref<FileAccess> file = FileAccess::open(debug_path + "/.gdignore", FileAccess::WRITE);
+	file->store_line("");
+	file->close();
+#endif
+
 	/* STEP 1: Fetch material textures and compute the bounds */
 
 	AABB bounds;
@@ -1017,8 +1029,8 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 
 #ifdef DEBUG_TEXTURES
 	for (int i = 0; i < atlas_slices; i++) {
-		albedo_images[i]->save_png("res://0_albedo_" + itos(i) + ".png");
-		emission_images[i]->save_png("res://0_emission_" + itos(i) + ".png");
+		albedo_images[i]->save_png(debug_path + "/0_albedo_" + itos(i) + ".png");
+		emission_images[i]->save_png(debug_path + "/0_emission_" + itos(i) + ".png");
 	}
 #endif
 
@@ -1142,7 +1154,7 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 			light_environment_tex = rd->texture_create(tfp, RD::TextureView(), tdata);
 
 #ifdef DEBUG_TEXTURES
-			panorama_tex->save_exr("res://0_panorama.exr", false);
+			panorama_tex->save_exr(debug_path + "/0_panorama.exr", false);
 #endif
 		}
 	}
@@ -1370,11 +1382,11 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 	for (int i = 0; i < atlas_slices; i++) {
 		Vector<uint8_t> s = rd->texture_get_data(position_tex, i);
 		Ref<Image> img = Image::create_from_data(atlas_size.width, atlas_size.height, false, Image::FORMAT_RGBAF, s);
-		img->save_exr("res://1_position_" + itos(i) + ".exr", false);
+		img->save_exr(debug_path + "/1_position_" + itos(i) + ".exr", false);
 
 		s = rd->texture_get_data(normal_tex, i);
 		img->set_data(atlas_size.width, atlas_size.height, false, Image::FORMAT_RGBAH, s);
-		img->save_exr("res://1_normal_" + itos(i) + ".exr", false);
+		img->save_exr(debug_path + "/1_normal_" + itos(i) + ".exr", false);
 	}
 #endif
 
@@ -1571,7 +1583,7 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 	for (int i = 0; i < atlas_slices; i++) {
 		Vector<uint8_t> s = rd->texture_get_data(light_source_tex, i);
 		Ref<Image> img = Image::create_from_data(atlas_size.width, atlas_size.height, false, Image::FORMAT_RGBAH, s);
-		img->save_exr("res://2_light_primary_" + itos(i) + ".exr", false);
+		img->save_exr(debug_path + "/2_light_primary_" + itos(i) + ".exr", false);
 	}
 #endif
 
@@ -1776,7 +1788,7 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 			img2->convert(Image::FORMAT_RGB8);
 			img->blit_rect(img2, Rect2i(0, 0, 2, 2), Point2i((j % 3) * 2, (j / 3) * 2));
 		}
-		img->save_png("res://3_light_probe_" + itos(i) + ".png");
+		img->save_png(debug_path + "/3_light_probe_" + itos(i) + ".png");
 	}
 #endif
 
@@ -1816,7 +1828,7 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 	for (int i = 0; i < atlas_slices * (p_bake_sh ? 4 : 1); i++) {
 		Vector<uint8_t> s = rd->texture_get_data(light_accum_tex, i);
 		Ref<Image> img = Image::create_from_data(atlas_size.width, atlas_size.height, false, Image::FORMAT_RGBAH, s);
-		img->save_exr("res://4_light_secondary_" + itos(i) + ".exr", false);
+		img->save_exr(debug_path + "/4_light_secondary_" + itos(i) + ".exr", false);
 	}
 #endif
 
@@ -1975,7 +1987,7 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 	for (int i = 0; i < atlas_slices * (p_bake_sh ? 4 : 1); i++) {
 		Vector<uint8_t> s = rd->texture_get_data(light_accum_tex, i);
 		Ref<Image> img = Image::create_from_data(atlas_size.width, atlas_size.height, false, Image::FORMAT_RGBAH, s);
-		img->save_exr("res://5_blendseams" + itos(i) + ".exr", false);
+		img->save_exr(debug_path + "/5_blendseams" + itos(i) + ".exr", false);
 	}
 #endif
 	if (p_step_function) {
@@ -1998,7 +2010,7 @@ LightmapperRD::BakeError LightmapperRD::bake(BakeQuality p_quality, bool p_use_d
 #ifdef DEBUG_TEXTURES
 		{
 			Ref<Image> img2 = Image::create_from_data(probe_values.size(), 1, false, Image::FORMAT_RGBAF, probe_data);
-			img2->save_exr("res://6_lightprobes.exr", false);
+			img2->save_exr(debug_path + "/6_lightprobes.exr", false);
 		}
 #endif
 	}
