@@ -46,7 +46,7 @@
 #endif
 
 //uncomment this if you want to see textures from all the process saved
-//#define DEBUG_TEXTURES
+#define DEBUG_TEXTURES
 
 void LightmapperRD::add_mesh(const MeshData &p_mesh) {
 	ERR_FAIL_COND(p_mesh.albedo_on_uv2.is_null() || p_mesh.albedo_on_uv2->is_empty());
