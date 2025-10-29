@@ -186,6 +186,13 @@ void MeshInstance3D::_resolve_skeleton_path() {
 			} else {
 				new_skin_reference = skeleton->register_skin(skin_internal);
 			}
+		} else {
+			// hack/fix because of the invalid default ".." skeleton path (pull/44630)
+			if (is_inside_tree() && this != get_tree()->get_edited_scene_root() && skeleton_path == NodePath("..")) {
+				WARN_VERBOSE(vformat("Clearing invalid skeleton_path in %s", get_name()));
+				set_skeleton_path(NodePath());
+				return;
+			}
 		}
 	}
 
